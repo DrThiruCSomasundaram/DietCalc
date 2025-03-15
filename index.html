@@ -35,7 +35,7 @@
         }
         .ingredient-row {
             display: grid;
-            grid-template-columns: repeat(9, 1fr);
+            grid-template-columns: 1.5fr 1fr 1fr repeat(8, 1fr);
             gap: 10px;
             margin-bottom: 10px;
         }
@@ -119,6 +119,7 @@
         <div class="results-section" id="resultsSection" style="display: none;">
             <h2>Results</h2>
             <button onclick="downloadPDF()" class="download-button">Download Results as PDF</button>
+            <button onclick="openRatioAdjuster()" class="download-button" style="background-color: #FF9800;">Adjust Ratios with Sliders</button>
             <div id="resultsTable"></div>
             <div id="isoCheck"></div>
         </div>
@@ -165,6 +166,7 @@
                     <div id="ingredients-${i}">
                         <div class="ingredient-row">
                             <div><strong>Ingredient</strong></div>
+                            <div><strong>Grams</strong></div>
                             <div><strong>Ratio (%)</strong></div>
                             <div><strong>Protein (%)</strong></div>
                             <div><strong>Lipid (%)</strong></div>
@@ -175,9 +177,12 @@
                             <div><strong>Fiber (%)</strong></div>
                         </div>
                     </div>
+                    <div class="total-weight" id="total-weight-${i}" style="margin-top: 10px; font-weight: bold; color: #2196F3;">
+                        Total Weight: 0g
+                    </div>
                 `;
                 container.appendChild(feedDiv);
-                addIngredient(i); // Add first ingredient row automatically
+                addIngredient(i);
             }
 
             document.getElementById('resultsSection').style.display = 'block';
@@ -192,8 +197,11 @@
             rowDiv.innerHTML = `
                 <input type="text" placeholder="Ingredient name" 
                     onchange="updateIngredient(${feedIndex}, ${ingredientId}, 'name', this.value)">
-                <input type="number" min="0" max="100" step="0.1" placeholder="Ratio" 
-                    onchange="updateIngredient(${feedIndex}, ${ingredientId}, 'ratio', this.value)">
+                <input type="number" min="0" step="0.1" placeholder="Grams" 
+                    onchange="updateIngredient(${feedIndex}, ${ingredientId}, 'grams', this.value)">
+                <div class="calculated-ratio" id="ratio-${feedIndex}-${ingredientId}" style="padding: 8px; text-align: center; background: #f8f9fa; border-radius: 4px;">
+                    0.00%
+                </div>
                 <input type="number" min="0" max="100" step="0.1" placeholder="Protein" 
                     onchange="updateIngredient(${feedIndex}, ${ingredientId}, 'protein', this.value)">
                 <input type="number" min="0" max="100" step="0.1" placeholder="Lipid" 
@@ -217,14 +225,13 @@
         }
 
         function copyFromFeed(targetFeedIndex) {
-            // Clear existing ingredients in target feed
             feeds[targetFeedIndex].ingredients = [];
             const targetIngredientsDiv = document.getElementById(`ingredients-${targetFeedIndex}`);
             
-            // Keep the header row
             targetIngredientsDiv.innerHTML = `
                 <div class="ingredient-row">
                     <div><strong>Ingredient</strong></div>
+                    <div><strong>Grams</strong></div>
                     <div><strong>Ratio (%)</strong></div>
                     <div><strong>Protein (%)</strong></div>
                     <div><strong>Lipid (%)</strong></div>
@@ -236,7 +243,6 @@
                 </div>
             `;
 
-            // Copy ingredients from Feed 1
             feeds[0].ingredients.forEach(ingredient => {
                 const newIngredient = {...ingredient};
                 feeds[targetFeedIndex].ingredients.push(newIngredient);
@@ -248,8 +254,11 @@
                 rowDiv.innerHTML = `
                     <input type="text" placeholder="Ingredient name" value="${ingredient.name || ''}"
                         onchange="updateIngredient(${targetFeedIndex}, ${ingredientId}, 'name', this.value)">
-                    <input type="number" min="0" max="100" step="0.1" placeholder="Ratio" value="${ingredient.ratio || ''}"
-                        onchange="updateIngredient(${targetFeedIndex}, ${ingredientId}, 'ratio', this.value)">
+                    <input type="number" min="0" step="0.1" placeholder="Grams" value="${ingredient.grams || ''}"
+                        onchange="updateIngredient(${targetFeedIndex}, ${ingredientId}, 'grams', this.value)">
+                    <div class="calculated-ratio" id="ratio-${targetFeedIndex}-${ingredientId}" style="padding: 8px; text-align: center; background: #f8f9fa; border-radius: 4px;">
+                        ${ingredient.ratio ? ingredient.ratio.toFixed(2) : '0.00'}%
+                    </div>
                     <input type="number" min="0" max="100" step="0.1" placeholder="Protein" value="${ingredient.protein || ''}"
                         onchange="updateIngredient(${targetFeedIndex}, ${ingredientId}, 'protein', this.value)">
                     <input type="number" min="0" max="100" step="0.1" placeholder="Lipid" value="${ingredient.lipid || ''}"
@@ -275,6 +284,35 @@
         function updateIngredient(feedIndex, ingredientIndex, property, value) {
             feeds[feedIndex].ingredients[ingredientIndex][property] = parseFloat(value) || value;
             calculateAndDisplay();
+            updateRatios(feedIndex);
+        }
+
+        function updateRatios(feedIndex) {
+            const feed = feeds[feedIndex];
+            let totalGrams = 0;
+            
+            // Calculate total grams
+            feed.ingredients.forEach(ingredient => {
+                if (ingredient.grams) {
+                    totalGrams += parseFloat(ingredient.grams);
+                }
+            });
+            
+            // Update ratios
+            feed.ingredients.forEach((ingredient, index) => {
+                const ratio = totalGrams > 0 ? (ingredient.grams / totalGrams * 100) : 0;
+                ingredient.ratio = ratio;
+                const ratioDisplay = document.getElementById(`ratio-${feedIndex}-${index}`);
+                if (ratioDisplay) {
+                    ratioDisplay.textContent = `${ratio.toFixed(2)}%`;
+                }
+            });
+            
+            // Update total weight display
+            const totalWeightDisplay = document.getElementById(`total-weight-${feedIndex}`);
+            if (totalWeightDisplay) {
+                totalWeightDisplay.textContent = `Total Weight: ${totalGrams.toFixed(1)}g`;
+            }
         }
 
         function calculateAndDisplay() {
@@ -294,12 +332,19 @@
                     starch: 0,
                     fiber: 0,
                     energy: 0,
-                    ratioSum: 0
+                    totalGrams: 0
                 };
 
                 feed.ingredients.forEach(ingredient => {
-                    if (ingredient.ratio) {
-                        const ratio = ingredient.ratio / 100;
+                    if (ingredient.grams) {
+                        totals.totalGrams += parseFloat(ingredient.grams);
+                    }
+                });
+
+                feed.ingredients.forEach(ingredient => {
+                    if (ingredient.grams) {
+                        const ratio = ingredient.grams / totals.totalGrams;
+                        ingredient.ratio = ratio * 100;
                         totals.protein += (ingredient.protein || 0) * ratio;
                         totals.lipid += (ingredient.lipid || 0) * ratio;
                         totals.ash += (ingredient.ash || 0) * ratio;
@@ -307,11 +352,9 @@
                         totals.glucose += (ingredient.glucose || 0) * ratio;
                         totals.starch += (ingredient.starch || 0) * ratio;
                         totals.fiber += (ingredient.fiber || 0) * ratio;
-                        totals.ratioSum += ingredient.ratio;
                     }
                 });
 
-                // Calculate energy (kJ/g) - using standard conversion factors
                 totals.energy = (totals.protein * 23.6) + (totals.lipid * 39.5) + 
                                ((totals.glucose + totals.starch) * 17.2) + 
                                (totals.fiber * 0.0) + (totals.moisture * 0.0);
@@ -329,6 +372,7 @@
                 <table class="results-table">
                     <tr>
                         <th>Feed</th>
+                        <th>Total Weight (g)</th>
                         <th>Total Protein (%)</th>
                         <th>Total Lipid (%)</th>
                         <th>Total Ash (%)</th>
@@ -337,7 +381,6 @@
                         <th>Total Starch (%)</th>
                         <th>Total Fiber (%)</th>
                         <th>Energy (kJ/g)</th>
-                        <th>Total Ratio (%)</th>
                     </tr>
             `;
 
@@ -345,6 +388,7 @@
                 html += `
                     <tr>
                         <td>Feed ${result.feedNumber}</td>
+                        <td>${result.totalGrams.toFixed(1)}</td>
                         <td>${result.protein.toFixed(2)}</td>
                         <td>${result.lipid.toFixed(2)}</td>
                         <td>${result.ash.toFixed(2)}</td>
@@ -353,7 +397,6 @@
                         <td>${result.starch.toFixed(2)}</td>
                         <td>${result.fiber.toFixed(2)}</td>
                         <td>${result.energy.toFixed(2)}</td>
-                        <td>${result.ratioSum.toFixed(2)}</td>
                     </tr>
                 `;
             });
@@ -417,7 +460,7 @@
                     // Create ingredients table with safe data handling
                     const ingredientsData = feed.ingredients.map(ing => [
                         String(ing.name || ''),
-                        (typeof ing.ratio === 'number' ? ing.ratio.toFixed(1) : ''),
+                        (typeof ing.grams === 'number' ? ing.grams.toFixed(1) : ''),
                         (typeof ing.protein === 'number' ? ing.protein.toFixed(1) : ''),
                         (typeof ing.lipid === 'number' ? ing.lipid.toFixed(1) : ''),
                         (typeof ing.ash === 'number' ? ing.ash.toFixed(1) : ''),
@@ -429,7 +472,7 @@
 
                     doc.autoTable({
                         startY: yPos,
-                        head: [['Ingredient', 'Ratio', 'Protein', 'Lipid', 'Ash', 'Moisture', 'Glucose', 'Starch', 'Fiber']],
+                        head: [['Ingredient', 'Grams', 'Protein', 'Lipid', 'Ash', 'Moisture', 'Glucose', 'Starch', 'Fiber']],
                         body: ingredientsData,
                         margin: { left: 15, right: 15 },
                         styles: { 
@@ -466,23 +509,30 @@
 
                 // Add results table with safe data handling
                 const results = calculateNutrients();
-                const resultsData = results.map(r => [
-                    `Feed ${r.feedNumber}`,
-                    r.protein.toFixed(2),
-                    r.lipid.toFixed(2),
-                    r.ash.toFixed(2),
-                    r.moisture.toFixed(2),
-                    r.glucose.toFixed(2),
-                    r.starch.toFixed(2),
-                    r.fiber.toFixed(2),
-                    r.energy.toFixed(2),
-                    r.ratioSum.toFixed(2)
-                ]);
+                const resultsData = [
+                    ['Feed', 'Total Weight (g)', 'Total Protein (%)', 'Total Lipid (%)', 'Total Ash (%)', 'Total Moisture (%)', 'Total Glucose (%)', 'Total Starch (%)', 'Total Fiber (%)', 'Energy (kJ/g)']
+                ];
+
+                // Add each feed's results to the data array
+                results.forEach(result => {
+                    resultsData.push([
+                        `Feed ${result.feedNumber}`,
+                        result.totalGrams.toFixed(1),
+                        result.protein.toFixed(2),
+                        result.lipid.toFixed(2),
+                        result.ash.toFixed(2),
+                        result.moisture.toFixed(2),
+                        result.glucose.toFixed(2),
+                        result.starch.toFixed(2),
+                        result.fiber.toFixed(2),
+                        result.energy.toFixed(2)
+                    ]);
+                });
 
                 doc.autoTable({
                     startY: yPos,
-                    head: [['Feed', 'Protein', 'Lipid', 'Ash', 'Moisture', 'Glucose', 'Starch', 'Fiber', 'Energy', 'Total']],
-                    body: resultsData,
+                    head: [resultsData[0]],
+                    body: resultsData.slice(1),
                     margin: { left: 15, right: 15 },
                     styles: { 
                         fontSize: 7,
@@ -593,6 +643,103 @@
                 alert('Error details: ' + error.message);
             }
         }
+
+        function openRatioAdjuster() {
+            // Ensure we have data to share
+            if (!feeds || feeds.length === 0 || !feeds[0].ingredients || feeds[0].ingredients.length === 0) {
+                alert('Please add ingredients to at least one feed before using the ratio adjuster.');
+                return;
+            }
+            
+            try {
+                // Store the current feeds data in localStorage
+                localStorage.setItem('feedsData', JSON.stringify(feeds));
+                
+                // Open the ratio adjuster in a new window
+                window.open('ratio-adjuster.html', '_blank', 'width=1200,height=800');
+            } catch (error) {
+                console.error('Error storing feeds data:', error);
+                alert('Error opening ratio adjuster: ' + error.message);
+            }
+        }
+
+        // Add this function to update the input boxes
+        function refreshIngredientInputs() {
+            feeds.forEach((feed, feedIndex) => {
+                const ingredientsDiv = document.getElementById(`ingredients-${feedIndex}`);
+                if (!ingredientsDiv) return;
+
+                // Keep the header row
+                ingredientsDiv.innerHTML = `
+                    <div class="ingredient-row">
+                        <div><strong>Ingredient</strong></div>
+                        <div><strong>Grams</strong></div>
+                        <div><strong>Ratio (%)</strong></div>
+                        <div><strong>Protein (%)</strong></div>
+                        <div><strong>Lipid (%)</strong></div>
+                        <div><strong>Ash (%)</strong></div>
+                        <div><strong>Moisture (%)</strong></div>
+                        <div><strong>Glucose (%)</strong></div>
+                        <div><strong>Starch (%)</strong></div>
+                        <div><strong>Fiber (%)</strong></div>
+                    </div>
+                `;
+
+                // Recreate each ingredient row with updated values
+                feed.ingredients.forEach((ingredient, ingredientIndex) => {
+                    const rowDiv = document.createElement('div');
+                    rowDiv.className = 'ingredient-row';
+                    rowDiv.innerHTML = `
+                        <input type="text" placeholder="Ingredient name" value="${ingredient.name || ''}"
+                            onchange="updateIngredient(${feedIndex}, ${ingredientIndex}, 'name', this.value)">
+                        <input type="number" min="0" step="0.1" placeholder="Grams" value="${ingredient.grams || ''}"
+                            onchange="updateIngredient(${feedIndex}, ${ingredientIndex}, 'grams', this.value)">
+                        <div class="calculated-ratio" id="ratio-${feedIndex}-${ingredientIndex}" style="padding: 8px; text-align: center; background: #f8f9fa; border-radius: 4px;">
+                            ${ingredient.ratio ? ingredient.ratio.toFixed(2) : '0.00'}%
+                        </div>
+                        <input type="number" min="0" max="100" step="0.1" placeholder="Protein" value="${ingredient.protein || ''}"
+                            onchange="updateIngredient(${feedIndex}, ${ingredientIndex}, 'protein', this.value)">
+                        <input type="number" min="0" max="100" step="0.1" placeholder="Lipid" value="${ingredient.lipid || ''}"
+                            onchange="updateIngredient(${feedIndex}, ${ingredientIndex}, 'lipid', this.value)">
+                        <input type="number" min="0" max="100" step="0.1" placeholder="Ash" value="${ingredient.ash || ''}"
+                            onchange="updateIngredient(${feedIndex}, ${ingredientIndex}, 'ash', this.value)">
+                        <input type="number" min="0" max="100" step="0.1" placeholder="Moisture" value="${ingredient.moisture || ''}"
+                            onchange="updateIngredient(${feedIndex}, ${ingredientIndex}, 'moisture', this.value)">
+                        <input type="number" min="0" max="100" step="0.1" placeholder="Glucose" value="${ingredient.glucose || ''}"
+                            onchange="updateIngredient(${feedIndex}, ${ingredientIndex}, 'glucose', this.value)">
+                        <input type="number" min="0" max="100" step="0.1" placeholder="Starch" value="${ingredient.starch || ''}"
+                            onchange="updateIngredient(${feedIndex}, ${ingredientIndex}, 'starch', this.value)">
+                        <input type="number" min="0" max="100" step="0.1" placeholder="Fiber" value="${ingredient.fiber || ''}"
+                            onchange="updateIngredient(${feedIndex}, ${ingredientIndex}, 'fiber', this.value)">
+                    `;
+                    ingredientsDiv.appendChild(rowDiv);
+                });
+
+                // Update the total weight display
+                const totalWeightDisplay = document.getElementById(`total-weight-${feedIndex}`);
+                if (totalWeightDisplay) {
+                    let totalGrams = feed.ingredients.reduce((sum, ing) => sum + (parseFloat(ing.grams) || 0), 0);
+                    totalWeightDisplay.textContent = `Total Weight: ${totalGrams.toFixed(1)}g`;
+                }
+            });
+        }
+
+        // Update the storage event listener
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'updatedFeedsData') {
+                try {
+                    const updatedFeeds = JSON.parse(e.newValue);
+                    if (updatedFeeds && Array.isArray(updatedFeeds)) {
+                        feeds = updatedFeeds;
+                        refreshIngredientInputs();
+                        calculateAndDisplay();
+                        localStorage.removeItem('updatedFeedsData'); // Clean up
+                    }
+                } catch (error) {
+                    console.error('Error processing updated feeds:', error);
+                }
+            }
+        });
 
         // Initialize the page with 2 feeds
         window.onload = () => setupFeeds();

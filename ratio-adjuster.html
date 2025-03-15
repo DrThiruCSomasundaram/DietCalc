@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feed Ingredients Adjuster (Grams)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .feed-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+        }
+        .ingredient-row {
+            display: grid;
+            grid-template-columns: 2fr 2fr 1fr 1fr;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .slider-container {
+            position: relative;
+        }
+        .slider {
+            width: 100%;
+            height: 25px;
+            background: #ddd;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity .2s;
+            border-radius: 12px;
+        }
+        .slider:hover {
+            opacity: 1;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            background: #4CAF50;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        .slider::-moz-range-thumb {
+            width: 25px;
+            height: 25px;
+            background: #4CAF50;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        .value-display {
+            width: 60px;
+            padding: 5px;
+            text-align: center;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .total-ratio {
+            font-weight: bold;
+            color: #2196F3;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #e3f2fd;
+            border-radius: 4px;
+        }
+        .warning {
+            color: #f44336;
+            font-weight: bold;
+        }
+        .nav-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .iso-status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+        }
+        .iso-status.warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .iso-status.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .calculated-ratio {
+            font-weight: bold;
+            color: #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Feed Ingredients Adjuster (Grams)</h1>
+        <p>Adjust ingredient amounts in grams. The ratios will be calculated automatically based on the total weight.</p>
+        
+        <div id="globalIsoStatus" style="margin: 20px 0; padding: 15px; background-color: #e3f2fd; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h2 style="margin-top: 0;">Global Iso-Status</h2>
+            <div id="globalIsoDetails"></div>
+        </div>
+        
+        <div id="feedsContainer"></div>
+
+        <div class="nav-buttons">
+            <button onclick="window.close()">Back to Calculator</button>
+            <button onclick="applyChanges()">Apply Changes</button>
+        </div>
+    </div>
+
+    <script>
+        let feeds = [];
+        let mainCalculator = null;
+
+        function loadFeedData() {
+            try {
+                const storedData = localStorage.getItem('feedsData');
+                if (!storedData) {
+                    throw new Error('No feed data found in storage');
+                }
+
+                feeds = JSON.parse(storedData);
+                if (!feeds || !Array.isArray(feeds) || feeds.length === 0) {
+                    throw new Error('Invalid feed data format');
+                }
+
+                createFeedSections();
+            } catch (error) {
+                console.error('Error loading feed data:', error);
+                document.getElementById('feedsContainer').innerHTML = 
+                    `<p style="color: red;">Error loading feed data: ${error.message}. Please return to the main calculator and try again.</p>`;
+            }
+        }
+
+        function createFeedSections() {
+            const container = document.getElementById('feedsContainer');
+            container.innerHTML = '';
+
+            if (!feeds || feeds.length === 0) {
+                container.innerHTML = '<p style="color: red;">No feed data available. Please add ingredients in the main calculator first.</p>';
+                return;
+            }
+
+            feeds.forEach((feed, feedIndex) => {
+                const feedSection = document.createElement('div');
+                feedSection.className = 'feed-section';
+                feedSection.innerHTML = `
+                    <h2>Feed Treatment ${feedIndex + 1}</h2>
+                    <div id="ingredients-${feedIndex}"></div>
+                    <div class="total-ratio" id="total-${feedIndex}">
+                        Total Weight: 0g
+                    </div>
+                    <div class="iso-status" id="iso-status-${feedIndex}"></div>
+                `;
+                container.appendChild(feedSection);
+
+                const ingredientsContainer = document.getElementById(`ingredients-${feedIndex}`);
+                feed.ingredients.forEach((ingredient, ingredientIndex) => {
+                    const row = document.createElement('div');
+                    row.className = 'ingredient-row';
+                    row.innerHTML = `
+                        <div>${ingredient.name || `Ingredient ${ingredientIndex + 1}`}</div>
+                        <div class="slider-container">
+                            <input type="range" min="0" max="2000" value="${ingredient.grams || 0}" 
+                                class="slider" 
+                                oninput="updateGrams(${feedIndex}, ${ingredientIndex}, this.value)">
+                        </div>
+                        <div class="value-display" id="grams-${feedIndex}-${ingredientIndex}">
+                            ${ingredient.grams || 0}g
+                        </div>
+                        <div class="calculated-ratio" id="ratio-${feedIndex}-${ingredientIndex}">
+                            (${ingredient.ratio ? ingredient.ratio.toFixed(2) : '0.00'}%)
+                        </div>
+                    `;
+                    ingredientsContainer.appendChild(row);
+                });
+
+                updateCalculations(feedIndex);
+            });
+        }
+
+        function updateGrams(feedIndex, ingredientIndex, value) {
+            if (!feeds[feedIndex] || !feeds[feedIndex].ingredients[ingredientIndex]) {
+                console.error('Invalid feed or ingredient index');
+                return;
+            }
+
+            feeds[feedIndex].ingredients[ingredientIndex].grams = parseFloat(value);
+            const gramsDisplay = document.getElementById(`grams-${feedIndex}-${ingredientIndex}`);
+            if (gramsDisplay) {
+                gramsDisplay.textContent = `${value}g`;
+            }
+            updateCalculations(feedIndex);
+        }
+
+        function updateCalculations(feedIndex) {
+            if (!feeds[feedIndex]) return;
+
+            const feed = feeds[feedIndex];
+            let totalGrams = 0;
+            
+            // Calculate total grams
+            feed.ingredients.forEach(ingredient => {
+                if (ingredient.grams) {
+                    totalGrams += parseFloat(ingredient.grams);
+                }
+            });
+            
+            // Update ratios and displays
+            feed.ingredients.forEach((ingredient, index) => {
+                const ratio = totalGrams > 0 ? (ingredient.grams / totalGrams * 100) : 0;
+                ingredient.ratio = ratio;
+                
+                const ratioDisplay = document.getElementById(`ratio-${feedIndex}-${index}`);
+                if (ratioDisplay) {
+                    ratioDisplay.textContent = `(${ratio.toFixed(2)}%)`;
+                }
+            });
+            
+            // Update total weight display
+            const totalDisplay = document.getElementById(`total-${feedIndex}`);
+            if (totalDisplay) {
+                totalDisplay.textContent = `Total Weight: ${totalGrams.toFixed(1)}g`;
+            }
+
+            // Calculate and update global iso status
+            const results = calculateNutrients();
+            updateGlobalIsoStatus(results);
+        }
+
+        function calculateNutrients() {
+            return feeds.map((feed, index) => {
+                const totals = {
+                    protein: 0,
+                    lipid: 0,
+                    ash: 0,
+                    moisture: 0,
+                    glucose: 0,
+                    starch: 0,
+                    fiber: 0,
+                    energy: 0,
+                    totalGrams: 0
+                };
+
+                feed.ingredients.forEach(ingredient => {
+                    if (ingredient.grams) {
+                        totals.totalGrams += parseFloat(ingredient.grams);
+                    }
+                });
+
+                feed.ingredients.forEach(ingredient => {
+                    if (ingredient.grams) {
+                        const ratio = ingredient.grams / totals.totalGrams;
+                        totals.protein += (ingredient.protein || 0) * ratio;
+                        totals.lipid += (ingredient.lipid || 0) * ratio;
+                        totals.ash += (ingredient.ash || 0) * ratio;
+                        totals.moisture += (ingredient.moisture || 0) * ratio;
+                        totals.glucose += (ingredient.glucose || 0) * ratio;
+                        totals.starch += (ingredient.starch || 0) * ratio;
+                        totals.fiber += (ingredient.fiber || 0) * ratio;
+                    }
+                });
+
+                totals.energy = (totals.protein * 23.6) + (totals.lipid * 39.5) + 
+                               ((totals.glucose + totals.starch) * 17.2) + 
+                               (totals.fiber * 0.0) + (totals.moisture * 0.0);
+
+                return {
+                    feedNumber: index + 1,
+                    ...totals
+                };
+            });
+        }
+
+        function updateGlobalIsoStatus(results) {
+            const proteinValues = results.map(r => r.protein);
+            const energyValues = results.map(r => r.energy);
+            
+            const proteinDiff = Math.max(...proteinValues) - Math.min(...proteinValues);
+            const energyDiff = Math.max(...energyValues) - Math.min(...energyValues);
+            
+            const isIsoProtein = proteinDiff < 2;
+            const isIsoEnergy = energyDiff < 50;
+
+            const statusDiv = document.getElementById('globalIsoDetails');
+            if (statusDiv) {
+                let html = `
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+                        <div class="iso-status ${isIsoProtein ? 'success' : 'warning'}" style="padding: 15px; border-radius: 8px;">
+                            <h3>Protein Difference</h3>
+                            <p style="font-size: 24px; margin: 10px 0;">${proteinDiff.toFixed(2)}%</p>
+                            <p>Target: < 2.00%</p>
+                            <p style="color: ${isIsoProtein ? '#155724' : '#856404'}">
+                                Status: ${isIsoProtein ? '✅ ACCEPTED' : '⚠️ NEEDS ADJUSTMENT'}
+                            </p>
+                        </div>
+                        <div class="iso-status ${isIsoEnergy ? 'success' : 'warning'}" style="padding: 15px; border-radius: 8px;">
+                            <h3>Energy Difference</h3>
+                            <p style="font-size: 24px; margin: 10px 0;">${energyDiff.toFixed(2)} kJ/g</p>
+                            <p>Target: < 50.00 kJ/g</p>
+                            <p style="color: ${isIsoEnergy ? '#155724' : '#856404'}">
+                                Status: ${isIsoEnergy ? '✅ ACCEPTED' : '⚠️ NEEDS ADJUSTMENT'}
+                            </p>
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+                        <h3>Feed Values:</h3>
+                        <div style="display: grid; grid-template-columns: repeat(${results.length}, 1fr); gap: 10px;">
+                            ${results.map(r => `
+                                <div style="background: #f8f9fa; padding: 10px; border-radius: 4px;">
+                                    <h4>Feed ${r.feedNumber}</h4>
+                                    <p>Protein: ${r.protein.toFixed(2)}%</p>
+                                    <p>Energy: ${r.energy.toFixed(2)} kJ/g</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                statusDiv.innerHTML = html;
+            }
+        }
+
+        function applyChanges() {
+            try {
+                // Store the updated feeds data
+                localStorage.setItem('updatedFeedsData', JSON.stringify(feeds));
+                alert('Changes have been applied successfully! You can now close this window.');
+                window.close();
+            } catch (error) {
+                console.error('Error applying changes:', error);
+                alert('Error applying changes: ' + error.message);
+            }
+        }
+
+        // Initialize the page immediately
+        window.onload = loadFeedData;
+    </script>
+</body>
+</html> 
