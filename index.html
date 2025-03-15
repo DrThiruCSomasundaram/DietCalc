@@ -379,192 +379,215 @@
         }
 
         function downloadPDF() {
-            const doc = new jsPDF();
-            
-            // Set title
-            doc.setFontSize(16);
-            doc.text('Diet Formulation Calculator Results', 15, 15);
-            doc.setFontSize(12);
-            
-            let yPos = 30;
-            
-            // Add date and time
-            const currentDate = new Date().toLocaleString();
-            doc.text(`Report generated on: ${currentDate}`, 15, yPos);
-            yPos += 10;
-
-            // Add ingredients for each feed
-            feeds.forEach((feed, feedIndex) => {
-                // Check if we need a new page
-                if (yPos > 220) {
-                    doc.addPage();
-                    yPos = 20;
-                }
+            try {
+                // Create PDF with landscape orientation and A4 size
+                const doc = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'mm',
+                    format: 'a4'
+                });
                 
+                // Set title
+                doc.setFontSize(16);
+                doc.text('Diet Formulation Calculator Results', 15, 15);
+                doc.setFontSize(12);
+                
+                let yPos = 30;
+                
+                // Add date and time
+                const currentDate = new Date().toLocaleString();
+                doc.text(`Report generated on: ${currentDate}`, 15, yPos);
                 yPos += 10;
-                doc.text(`Feed Treatment ${feedIndex + 1} Ingredients:`, 15, yPos);
+
+                // Add ingredients for each feed
+                feeds.forEach((feed, feedIndex) => {
+                    // Check if we need a new page
+                    if (yPos > 180) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    
+                    doc.text(`Feed Treatment ${feedIndex + 1} Ingredients:`, 15, yPos);
+                    yPos += 5;
+
+                    // Create ingredients table with safe data handling
+                    const ingredientsData = feed.ingredients.map(ing => [
+                        String(ing.name || ''),
+                        String(ing.ratio?.toFixed(1) || ''),
+                        String(ing.protein?.toFixed(1) || ''),
+                        String(ing.lipid?.toFixed(1) || ''),
+                        String(ing.ash?.toFixed(1) || ''),
+                        String(ing.moisture?.toFixed(1) || ''),
+                        String(ing.glucose?.toFixed(1) || ''),
+                        String(ing.starch?.toFixed(1) || ''),
+                        String(ing.fiber?.toFixed(1) || '')
+                    ]);
+
+                    doc.autoTable({
+                        startY: yPos,
+                        head: [['Ingredient', 'Ratio (%)', 'Protein (%)', 'Lipid (%)', 'Ash (%)', 'Moisture (%)', 'Glucose (%)', 'Starch (%)', 'Fiber (%)']],
+                        body: ingredientsData,
+                        margin: { left: 15, right: 15 },
+                        styles: { 
+                            fontSize: 8,
+                            cellPadding: 2,
+                            overflow: 'linebreak'
+                        },
+                        headStyles: { 
+                            fontSize: 8,
+                            fillColor: [220, 220, 220],
+                            textColor: [0, 0, 0]
+                        },
+                        columnStyles: {
+                            0: { cellWidth: 40 },
+                            1: { cellWidth: 20 },
+                            2: { cellWidth: 20 },
+                            3: { cellWidth: 20 },
+                            4: { cellWidth: 20 },
+                            5: { cellWidth: 20 },
+                            6: { cellWidth: 20 },
+                            7: { cellWidth: 20 },
+                            8: { cellWidth: 20 }
+                        }
+                    });
+
+                    yPos = doc.lastAutoTable.finalY + 10;
+                });
+
+                // Add results table on a new page
+                doc.addPage();
+                yPos = 20;
+                doc.text('Results Summary:', 15, yPos);
                 yPos += 5;
 
-                // Create ingredients table
-                const ingredientsData = feed.ingredients.map(ing => [
-                    ing.name || '',
-                    ing.ratio?.toFixed(1) || '',
-                    ing.protein?.toFixed(1) || '',
-                    ing.lipid?.toFixed(1) || '',
-                    ing.ash?.toFixed(1) || '',
-                    ing.moisture?.toFixed(1) || '',
-                    ing.glucose?.toFixed(1) || '',
-                    ing.starch?.toFixed(1) || '',
-                    ing.fiber?.toFixed(1) || ''
+                // Add results table with safe data handling
+                const results = calculateNutrients();
+                const resultsData = results.map(r => [
+                    `Feed ${r.feedNumber}`,
+                    String(r.protein.toFixed(2)),
+                    String(r.lipid.toFixed(2)),
+                    String(r.ash.toFixed(2)),
+                    String(r.moisture.toFixed(2)),
+                    String(r.glucose.toFixed(2)),
+                    String(r.starch.toFixed(2)),
+                    String(r.fiber.toFixed(2)),
+                    String(r.energy.toFixed(2)),
+                    String(r.ratioSum.toFixed(2))
                 ]);
 
                 doc.autoTable({
                     startY: yPos,
-                    head: [['Ingredient', 'Ratio (%)', 'Protein (%)', 'Lipid (%)', 'Ash (%)', 'Moisture (%)', 'Glucose (%)', 'Starch (%)', 'Fiber (%)']],
-                    body: ingredientsData,
-                    margin: { left: 15 },
-                    tableWidth: 180,
-                    styles: { fontSize: 8 },
-                    headStyles: { fontSize: 8, fillColor: [220, 220, 220] },
-                    columnStyles: {
-                        0: { cellWidth: 30 },
-                        1: { cellWidth: 15 },
-                        2: { cellWidth: 15 },
-                        3: { cellWidth: 15 },
-                        4: { cellWidth: 15 },
-                        5: { cellWidth: 15 },
-                        6: { cellWidth: 15 },
-                        7: { cellWidth: 15 },
-                        8: { cellWidth: 15 }
+                    head: [['Feed', 'Protein (%)', 'Lipid (%)', 'Ash (%)', 'Moisture (%)', 'Glucose (%)', 'Starch (%)', 'Fiber (%)', 'Energy (kJ/g)', 'Total (%)']],
+                    body: resultsData,
+                    margin: { left: 15, right: 15 },
+                    styles: { 
+                        fontSize: 8,
+                        cellPadding: 2
+                    },
+                    headStyles: { 
+                        fontSize: 8,
+                        fillColor: [220, 220, 220],
+                        textColor: [0, 0, 0]
                     }
                 });
 
-                yPos = doc.lastAutoTable.finalY + 10;
-            });
+                yPos = doc.lastAutoTable.finalY + 15;
 
-            // Add results table on a new page
-            doc.addPage();
-            yPos = 20;
-            doc.text('Results Summary:', 15, yPos);
-            yPos += 5;
+                // Add verification table
+                doc.text('Iso-Protein and Iso-Energy Verification:', 15, yPos);
+                yPos += 10;
 
-            // Add results table
-            const results = calculateNutrients();
-            const resultsData = results.map(r => [
-                `Feed ${r.feedNumber}`,
-                r.protein.toFixed(2),
-                r.lipid.toFixed(2),
-                r.ash.toFixed(2),
-                r.moisture.toFixed(2),
-                r.glucose.toFixed(2),
-                r.starch.toFixed(2),
-                r.fiber.toFixed(2),
-                r.energy.toFixed(2),
-                r.ratioSum.toFixed(2)
-            ]);
+                const isoConditions = checkIsoConditions(results);
+                const verificationData = [
+                    ['Parameter', 'Difference', 'Maximum Allowed', 'Status'],
+                    [
+                        'Protein',
+                        `${isoConditions.proteinDiff.toFixed(2)}%`,
+                        '2.00%',
+                        isoConditions.isIsoProtein ? 'ACCEPTED' : 'NOT ACCEPTED'
+                    ],
+                    [
+                        'Energy',
+                        `${isoConditions.energyDiff.toFixed(2)} kJ/g`,
+                        '50.00 kJ/g',
+                        isoConditions.isIsoEnergy ? 'ACCEPTED' : 'NOT ACCEPTED'
+                    ]
+                ];
 
-            doc.autoTable({
-                startY: yPos,
-                head: [['Feed', 'Protein (%)', 'Lipid (%)', 'Ash (%)', 'Moisture (%)', 'Glucose (%)', 'Starch (%)', 'Fiber (%)', 'Energy (kJ/g)', 'Total (%)']],
-                body: resultsData,
-                margin: { left: 15 },
-                styles: { fontSize: 8 },
-                headStyles: { fontSize: 8, fillColor: [220, 220, 220] }
-            });
-
-            yPos = doc.lastAutoTable.finalY + 15;
-
-            // Add verification table
-            doc.text('Iso-Protein and Iso-Energy Verification:', 15, yPos);
-            yPos += 10;
-
-            const isoConditions = checkIsoConditions(results);
-            const verificationData = [
-                ['Parameter', 'Difference', 'Maximum Allowed', 'Status'],
-                [
-                    'Protein',
-                    `${isoConditions.proteinDiff.toFixed(2)}%`,
-                    '2.00%',
-                    isoConditions.isIsoProtein ? 'ACCEPTED' : 'NOT ACCEPTED'
-                ],
-                [
-                    'Energy',
-                    `${isoConditions.energyDiff.toFixed(2)} kJ/g`,
-                    '50.00 kJ/g',
-                    isoConditions.isIsoEnergy ? 'ACCEPTED' : 'NOT ACCEPTED'
-                ]
-            ];
-
-            doc.autoTable({
-                startY: yPos,
-                head: [verificationData[0]],
-                body: verificationData.slice(1),
-                margin: { left: 15 },
-                styles: { fontSize: 10 },
-                columnStyles: {
-                    3: {
-                        fontStyle: 'bold',
-                        textColor: [0, 0, 0],
-                        cellPadding: 5
-                    }
-                },
-                didDrawCell: function(data) {
-                    if (data.section === 'body' && data.column.index === 3) {
-                        const cell = data.cell;
-                        const text = cell.text[0];
-                        if (text === 'ACCEPTED') {
-                            doc.setFillColor(200, 255, 200);
-                        } else {
-                            doc.setFillColor(255, 200, 200);
+                doc.autoTable({
+                    startY: yPos,
+                    head: [verificationData[0]],
+                    body: verificationData.slice(1),
+                    margin: { left: 15, right: 15 },
+                    styles: { fontSize: 10 },
+                    columnStyles: {
+                        3: {
+                            fontStyle: 'bold',
+                            textColor: [0, 0, 0],
+                            cellPadding: 5
                         }
-                        doc.rect(cell.x, cell.y, cell.width, cell.height, 'F');
-                        doc.setTextColor(0, 0, 0);
-                        doc.text(text, cell.x + cell.width / 2, cell.y + cell.height / 2, {
-                            align: 'center',
-                            baseline: 'middle'
-                        });
+                    },
+                    didDrawCell: function(data) {
+                        if (data.section === 'body' && data.column.index === 3) {
+                            const cell = data.cell;
+                            const text = cell.text[0];
+                            if (text === 'ACCEPTED') {
+                                doc.setFillColor(200, 255, 200);
+                            } else {
+                                doc.setFillColor(255, 200, 200);
+                            }
+                            doc.rect(cell.x, cell.y, cell.width, cell.height, 'F');
+                            doc.setTextColor(0, 0, 0);
+                            doc.text(text, cell.x + cell.width / 2, cell.y + cell.height / 2, {
+                                align: 'center',
+                                baseline: 'middle'
+                            });
+                        }
                     }
+                });
+
+                yPos = doc.lastAutoTable.finalY + 15;
+
+                // Status messages
+                doc.setFontSize(12);
+                doc.text('Overall Status:', 15, yPos);
+                yPos += 7;
+                doc.setFontSize(11);
+
+                // ISO-PROTEIN Status
+                if (isoConditions.isIsoProtein) {
+                    doc.setTextColor(0, 128, 0);
+                    doc.text('ISO-PROTEIN FORMULATION ACCEPTED', 15, yPos);
+                } else {
+                    doc.setTextColor(128, 0, 0);
+                    doc.text('ISO-PROTEIN FORMULATION NEEDS ADJUSTMENT', 15, yPos);
                 }
-            });
+                yPos += 10;
 
-            yPos = doc.lastAutoTable.finalY + 15;
+                // ISO-ENERGY Status
+                if (isoConditions.isIsoEnergy) {
+                    doc.setTextColor(0, 128, 0);
+                    doc.text('ISO-ENERGY FORMULATION ACCEPTED', 15, yPos);
+                } else {
+                    doc.setTextColor(128, 0, 0);
+                    doc.text('ISO-ENERGY FORMULATION NEEDS ADJUSTMENT', 15, yPos);
+                }
+                doc.setTextColor(0, 0, 0);
 
-            // Status messages
-            doc.setFontSize(12);
-            doc.text('Overall Status:', 15, yPos);
-            yPos += 7;
-            doc.setFontSize(11);
+                // Add footer
+                doc.setFontSize(8);
+                const pageHeight = doc.internal.pageSize.height;
+                doc.text('Certified by Dr Thiru Chenduran Somasundaram', 15, pageHeight - 25);
+                doc.text('Energy conversion factors: Protein (23.6 kJ/g), Lipid (39.5 kJ/g), Glucose/Starch (17.2 kJ/g),', 15, pageHeight - 20);
+                doc.text('Fiber (0.0 kJ/g), Moisture (0.0 kJ/g)', 15, pageHeight - 15);
+                doc.text('Reference: National Research Council. (2011). Nutrient Requirements of Fish and Shrimp.', 15, pageHeight - 10);
 
-            // ISO-PROTEIN Status
-            if (isoConditions.isIsoProtein) {
-                doc.setTextColor(0, 128, 0);
-                doc.text('ISO-PROTEIN FORMULATION ACCEPTED', 15, yPos);
-            } else {
-                doc.setTextColor(128, 0, 0);
-                doc.text('ISO-PROTEIN FORMULATION NEEDS ADJUSTMENT', 15, yPos);
+                // Save the PDF
+                doc.save('diet-formulation-results.pdf');
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                alert('There was an error generating the PDF. Please try again.');
             }
-            yPos += 10;
-
-            // ISO-ENERGY Status
-            if (isoConditions.isIsoEnergy) {
-                doc.setTextColor(0, 128, 0);
-                doc.text('ISO-ENERGY FORMULATION ACCEPTED', 15, yPos);
-            } else {
-                doc.setTextColor(128, 0, 0);
-                doc.text('ISO-ENERGY FORMULATION NEEDS ADJUSTMENT', 15, yPos);
-            }
-            doc.setTextColor(0, 0, 0);
-
-            // Add footer
-            doc.setFontSize(8);
-            const pageHeight = doc.internal.pageSize.height;
-            doc.text('Certified by Dr Thiru Chenduran Somasundaram', 15, pageHeight - 25);
-            doc.text('Energy conversion factors: Protein (23.6 kJ/g), Lipid (39.5 kJ/g), Glucose/Starch (17.2 kJ/g),', 15, pageHeight - 20);
-            doc.text('Fiber (0.0 kJ/g), Moisture (0.0 kJ/g)', 15, pageHeight - 15);
-            doc.text('Reference: National Research Council. (2011). Nutrient Requirements of Fish and Shrimp.', 15, pageHeight - 10);
-
-            // Save the PDF
-            doc.save('diet-formulation-results.pdf');
         }
 
         // Initialize the page with 2 feeds
