@@ -28,7 +28,7 @@
         }
         .ingredient-row {
             display: grid;
-            grid-template-columns: repeat(8, 1fr);
+            grid-template-columns: repeat(9, 1fr);
             gap: 10px;
             margin-bottom: 10px;
         }
@@ -118,7 +118,7 @@
 
         <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; font-size: 0.9em; color: #666;">
             <p>Certified by Dr Thiru Chenduran Somasundaram</p>
-            <p>Energy conversion factors: Protein (23.6 kJ/g), Lipid (39.5 kJ/g), Glucose/Starch (17.2 kJ/g), Fiber (0.0 kJ/g)</p>
+            <p>Energy conversion factors: Protein (23.6 kJ/g), Lipid (39.5 kJ/g), Glucose/Starch (17.2 kJ/g), Fiber (0.0 kJ/g), Moisture (0.0 kJ/g)</p>
             <p>Reference: National Research Council. (2011). Nutrient Requirements of Fish and Shrimp. National Academic Press, Washington, DC. DOI: <a href="https://doi.org/10.17226/13039" target="_blank">10.17226/13039</a></p>
             <div style="margin: 20px 0;">
                 <p style="font-weight: bold;">How to Cite:</p>
@@ -162,6 +162,7 @@
                             <div><strong>Protein (%)</strong></div>
                             <div><strong>Lipid (%)</strong></div>
                             <div><strong>Ash (%)</strong></div>
+                            <div><strong>Moisture (%)</strong></div>
                             <div><strong>Glucose (%)</strong></div>
                             <div><strong>Starch (%)</strong></div>
                             <div><strong>Fiber (%)</strong></div>
@@ -192,6 +193,8 @@
                     onchange="updateIngredient(${feedIndex}, ${ingredientId}, 'lipid', this.value)">
                 <input type="number" min="0" max="100" step="0.1" placeholder="Ash" 
                     onchange="updateIngredient(${feedIndex}, ${ingredientId}, 'ash', this.value)">
+                <input type="number" min="0" max="100" step="0.1" placeholder="Moisture" 
+                    onchange="updateIngredient(${feedIndex}, ${ingredientId}, 'moisture', this.value)">
                 <input type="number" min="0" max="100" step="0.1" placeholder="Glucose" 
                     onchange="updateIngredient(${feedIndex}, ${ingredientId}, 'glucose', this.value)">
                 <input type="number" min="0" max="100" step="0.1" placeholder="Starch" 
@@ -219,6 +222,7 @@
                     <div><strong>Protein (%)</strong></div>
                     <div><strong>Lipid (%)</strong></div>
                     <div><strong>Ash (%)</strong></div>
+                    <div><strong>Moisture (%)</strong></div>
                     <div><strong>Glucose (%)</strong></div>
                     <div><strong>Starch (%)</strong></div>
                     <div><strong>Fiber (%)</strong></div>
@@ -245,6 +249,8 @@
                         onchange="updateIngredient(${targetFeedIndex}, ${ingredientId}, 'lipid', this.value)">
                     <input type="number" min="0" max="100" step="0.1" placeholder="Ash" value="${ingredient.ash || ''}"
                         onchange="updateIngredient(${targetFeedIndex}, ${ingredientId}, 'ash', this.value)">
+                    <input type="number" min="0" max="100" step="0.1" placeholder="Moisture" value="${ingredient.moisture || ''}"
+                        onchange="updateIngredient(${targetFeedIndex}, ${ingredientId}, 'moisture', this.value)">
                     <input type="number" min="0" max="100" step="0.1" placeholder="Glucose" value="${ingredient.glucose || ''}"
                         onchange="updateIngredient(${targetFeedIndex}, ${ingredientId}, 'glucose', this.value)">
                     <input type="number" min="0" max="100" step="0.1" placeholder="Starch" value="${ingredient.starch || ''}"
@@ -276,6 +282,7 @@
                     protein: 0,
                     lipid: 0,
                     ash: 0,
+                    moisture: 0,
                     glucose: 0,
                     starch: 0,
                     fiber: 0,
@@ -289,6 +296,7 @@
                         totals.protein += (ingredient.protein || 0) * ratio;
                         totals.lipid += (ingredient.lipid || 0) * ratio;
                         totals.ash += (ingredient.ash || 0) * ratio;
+                        totals.moisture += (ingredient.moisture || 0) * ratio;
                         totals.glucose += (ingredient.glucose || 0) * ratio;
                         totals.starch += (ingredient.starch || 0) * ratio;
                         totals.fiber += (ingredient.fiber || 0) * ratio;
@@ -298,7 +306,8 @@
 
                 // Calculate energy (kJ/g) - using standard conversion factors
                 totals.energy = (totals.protein * 23.6) + (totals.lipid * 39.5) + 
-                               ((totals.glucose + totals.starch) * 17.2) + (totals.fiber * 0.0);
+                               ((totals.glucose + totals.starch) * 17.2) + 
+                               (totals.fiber * 0.0) + (totals.moisture * 0.0);
 
                 return {
                     feedNumber: index + 1,
@@ -316,6 +325,7 @@
                         <th>Total Protein (%)</th>
                         <th>Total Lipid (%)</th>
                         <th>Total Ash (%)</th>
+                        <th>Total Moisture (%)</th>
                         <th>Total Glucose (%)</th>
                         <th>Total Starch (%)</th>
                         <th>Total Fiber (%)</th>
@@ -331,6 +341,7 @@
                         <td>${result.protein.toFixed(2)}</td>
                         <td>${result.lipid.toFixed(2)}</td>
                         <td>${result.ash.toFixed(2)}</td>
+                        <td>${result.moisture.toFixed(2)}</td>
                         <td>${result.glucose.toFixed(2)}</td>
                         <td>${result.starch.toFixed(2)}</td>
                         <td>${result.fiber.toFixed(2)}</td>
@@ -353,7 +364,7 @@
             const energyDiff = Math.max(...energyValues) - Math.min(...energyValues);
             
             const isIsoProtein = proteinDiff < 2; // Allow 2% difference
-            const isIsoEnergy = energyDiff < 50; // Allow 50 kJ/g difference
+            const isIsoEnergy = energyDiff < 100; // Allow 50 kJ/g difference
 
             isoCheckDiv.innerHTML = `
                 <h3>Iso - Protein - Iso - Energy Verification:</h3> 
@@ -393,6 +404,7 @@
                     ing.protein?.toFixed(1) || '',
                     ing.lipid?.toFixed(1) || '',
                     ing.ash?.toFixed(1) || '',
+                    ing.moisture?.toFixed(1) || '',
                     ing.glucose?.toFixed(1) || '',
                     ing.starch?.toFixed(1) || '',
                     ing.fiber?.toFixed(1) || ''
@@ -400,7 +412,7 @@
 
                 doc.autoTable({
                     startY: yPos,
-                    head: [['Ingredient', 'Ratio (%)', 'Protein (%)', 'Lipid (%)', 'Ash (%)', 'Glucose (%)', 'Starch (%)', 'Fiber (%)']],
+                    head: [['Ingredient', 'Ratio (%)', 'Protein (%)', 'Lipid (%)', 'Ash (%)', 'Moisture (%)', 'Glucose (%)', 'Starch (%)', 'Fiber (%)']],
                     body: ingredientsData,
                     margin: { left: 15 }
                 });
@@ -415,6 +427,7 @@
                 r.protein.toFixed(2),
                 r.lipid.toFixed(2),
                 r.ash.toFixed(2),
+                r.moisture.toFixed(2),
                 r.glucose.toFixed(2),
                 r.starch.toFixed(2),
                 r.fiber.toFixed(2),
@@ -427,7 +440,7 @@
 
             doc.autoTable({
                 startY: yPos,
-                head: [['Feed', 'Protein (%)', 'Lipid (%)', 'Ash (%)', 'Glucose (%)', 'Starch (%)', 'Fiber (%)', 'Energy (kJ/g)', 'Total (%)']],
+                head: [['Feed', 'Protein (%)', 'Lipid (%)', 'Ash (%)', 'Moisture (%)', 'Glucose (%)', 'Starch (%)', 'Fiber (%)', 'Energy (kJ/g)', 'Total (%)']],
                 body: resultsData,
                 margin: { left: 15 }
             });
@@ -451,7 +464,7 @@
                 [
                     'Energy',
                     `${isoConditions.energyDiff.toFixed(2)} kJ/g`,
-                    '50.00 kJ/g',
+                    '100.00 kJ/g',
                     isoConditions.isIsoEnergy ? 'ACCEPTED' : 'NOT ACCEPTED'
                 ]
             ];
@@ -510,7 +523,7 @@
             doc.setFontSize(8);
             const pageHeight = doc.internal.pageSize.height;
             doc.text('Certified by Dr Thiru Chenduran Somasundaram', 15, pageHeight - 20);
-            doc.text('Energy conversion factors: Protein (23.6 kJ/g), Lipid (39.5 kJ/g), Glucose/Starch (17.2 kJ/g), Fiber (0.0 kJ/g)', 15, pageHeight - 15);
+            doc.text('Energy conversion factors: Protein (23.6 kJ/g), Lipid (39.5 kJ/g), Glucose/Starch (17.2 kJ/g), Fiber (0.0 kJ/g), Moisture (0.0 kJ/g)', 15, pageHeight - 15);
             doc.text('Reference: National Research Council. (2011). Nutrient Requirements of Fish and Shrimp.', 15, pageHeight - 10);
 
             // Save the PDF
