@@ -1,5 +1,7 @@
 # Diet Formulation Calculator
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15029930.svg)](https://doi.org/10.5281/zenodo.15029930)
+
 An interactive web-based calculator for formulating and optimizing experimental feed compositions. This tool helps researchers and nutritionists create iso-protein and iso-energetic experimental diets.
 
 ## Features
@@ -49,4 +51,21 @@ Dr Thiru Chenduran Somasundaram
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Citation
+
+If you use this calculator in your research, please cite it as:
+
+```bibtex
+@software{somasundaram_diet_calculator_2024,
+  author       = {Somasundaram, Thiru Chenduran},
+  title        = {Diet Formulation Calculator: A Tool for Iso-Protein and Iso-Energy Feed Formulation},
+  month        = mar,
+  year         = 2024,
+  publisher    = {Zenodo},
+  version      = {v1.0.0},
+  doi          = {10.5281/zenodo.15029930},
+  url          = {https://doi.org/10.5281/zenodo.15029930}
+}
+``` 
