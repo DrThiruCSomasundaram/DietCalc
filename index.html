@@ -114,7 +114,6 @@
             <button onclick="downloadPDF()" class="download-button">Download Results as PDF</button>
             <div id="resultsTable"></div>
             <div id="isoCheck"></div>
-            <div id="optimizationSuggestions" class="optimization-suggestions"></div>
         </div>
 
         <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; font-size: 0.9em; color: #666;">
@@ -257,7 +256,6 @@
             const results = calculateNutrients();
             displayResults(results);
             checkIsoConditions(results);
-            suggestOptimization(results);
         }
 
         function calculateNutrients() {
@@ -334,7 +332,7 @@
             const energyDiff = Math.max(...energyValues) - Math.min(...energyValues);
             
             const isIsoProtein = proteinDiff < 2; // Allow 2% difference
-            const isIsoEnergy = energyDiff < 100; // Allow 100 kJ/g difference
+            const isIsoEnergy = energyDiff < 50; // Allow 50 kJ/g difference
 
             isoCheckDiv.innerHTML = `
                 <h3>Iso - Protein - Iso - Energy Verification:</h3> 
@@ -343,98 +341,6 @@
             `;
 
             return { proteinDiff, energyDiff, isIsoProtein, isIsoEnergy };
-        }
-
-        function suggestOptimization(results) {
-            const suggestionsDiv = document.getElementById('optimizationSuggestions');
-            const avgProtein = results.reduce((sum, r) => sum + r.protein, 0) / results.length;
-            const avgEnergy = results.reduce((sum, r) => sum + r.energy, 0) / results.length;
-            const isoConditions = checkIsoConditions(results);
-
-            let suggestions = '<h3>Optimization Suggestions:</h3>';
-            
-            results.forEach(result => {
-                const feed = feeds[result.feedNumber - 1];
-                suggestions += `<h4>Feed ${result.feedNumber}:</h4><ul>`;
-                
-                // Only suggest changes if difference is more than 2%
-                if (Math.abs(result.protein - avgProtein) > 2) {
-                    const proteinDiff = result.protein - avgProtein;
-                    suggestions += `<li>Protein content differs by ${Math.abs(proteinDiff).toFixed(2)}%:</li><ul>`;
-                    
-                    // Find highest protein ingredients
-                    const sortedByProtein = [...feed.ingredients]
-                        .filter(i => i.ratio && i.protein)
-                        .sort((a, b) => b.protein - a.protein);
-
-                    if (proteinDiff > 0) {
-                        // Need to reduce protein
-                        sortedByProtein.slice(0, 2).forEach(ing => {
-                            // Calculate what percentage of the current ratio needs to be adjusted
-                            const currentContribution = (ing.protein * ing.ratio) / 100;
-                            const desiredReduction = proteinDiff * (ing.ratio / result.protein);
-                            const adjustmentPercent = (desiredReduction / currentContribution) * ing.ratio;
-                            suggestions += `<li>Reduce "${ing.name}" by approximately ${Math.abs(adjustmentPercent).toFixed(1)}% (from ${ing.ratio.toFixed(1)}% to ${(ing.ratio - adjustmentPercent).toFixed(1)}%)</li>`;
-                        });
-                    } else {
-                        // Need to increase protein
-                        sortedByProtein.slice(0, 2).forEach(ing => {
-                            const currentContribution = (ing.protein * ing.ratio) / 100;
-                            const desiredIncrease = Math.abs(proteinDiff) * (ing.ratio / result.protein);
-                            const adjustmentPercent = (desiredIncrease / currentContribution) * ing.ratio;
-                            suggestions += `<li>Increase "${ing.name}" by approximately ${adjustmentPercent.toFixed(1)}% (from ${ing.ratio.toFixed(1)}% to ${(ing.ratio + adjustmentPercent).toFixed(1)}%)</li>`;
-                        });
-                    }
-                    suggestions += '</ul>';
-                }
-                
-                if (Math.abs(result.energy - avgEnergy) > 100) { // Changed threshold to 100 kJ/g
-                    const energyDiff = result.energy - avgEnergy;
-                    suggestions += `<li>Energy content differs by ${Math.abs(energyDiff).toFixed(2)} kJ/g:</li><ul>`;
-                    
-                    // Find highest energy contributing ingredients
-                    const sortedByEnergy = [...feed.ingredients]
-                        .filter(i => i.ratio)
-                        .map(i => ({
-                            ...i,
-                            energyContribution: ((i.protein * 23.6 + i.lipid * 39.5 + i.carbs * 17.2) * i.ratio) / 100
-                        }))
-                        .sort((a, b) => b.energyContribution - a.energyContribution);
-
-                    if (energyDiff > 0) {
-                        // Need to reduce energy
-                        sortedByEnergy.slice(0, 2).forEach(ing => {
-                            const totalEnergyContribution = ing.energyContribution * (ing.ratio / 100);
-                            const desiredReduction = energyDiff * (ing.ratio / result.energy);
-                            const adjustmentPercent = (desiredReduction / totalEnergyContribution) * ing.ratio;
-                            suggestions += `<li>Reduce "${ing.name}" by approximately ${Math.abs(adjustmentPercent).toFixed(1)}% (from ${ing.ratio.toFixed(1)}% to ${(ing.ratio - adjustmentPercent).toFixed(1)}%)</li>`;
-                        });
-                    } else {
-                        // Need to increase energy
-                        sortedByEnergy.slice(0, 2).forEach(ing => {
-                            const totalEnergyContribution = ing.energyContribution * (ing.ratio / 100);
-                            const desiredIncrease = Math.abs(energyDiff) * (ing.ratio / result.energy);
-                            const adjustmentPercent = (desiredIncrease / totalEnergyContribution) * ing.ratio;
-                            suggestions += `<li>Increase "${ing.name}" by approximately ${adjustmentPercent.toFixed(1)}% (from ${ing.ratio.toFixed(1)}% to ${(ing.ratio + adjustmentPercent).toFixed(1)}%)</li>`;
-                        });
-                    }
-                    suggestions += '</ul>';
-                }
-
-                if (Math.abs(result.ratioSum - 100) > 0.1) {
-                    suggestions += `<li>Total ingredients ratio should equal 100% (currently ${result.ratioSum.toFixed(1)}%)</li>`;
-                    const diff = 100 - result.ratioSum;
-                    if (diff > 0) {
-                        suggestions += `<li>Add ${diff.toFixed(1)}% more ingredients to reach 100%</li>`;
-                    } else {
-                        suggestions += `<li>Reduce total ingredients by ${Math.abs(diff).toFixed(1)}% to reach 100%</li>`;
-                    }
-                }
-                
-                suggestions += '</ul>';
-            });
-
-            suggestionsDiv.innerHTML = suggestions;
         }
 
         function downloadPDF() {
@@ -520,7 +426,7 @@
                 [
                     'Energy',
                     `${isoConditions.energyDiff.toFixed(2)} kJ/g`,
-                    '100.00 kJ/g',
+                    '50.00 kJ/g',
                     isoConditions.isIsoEnergy ? 'ACCEPTED' : 'NOT ACCEPTED'
                 ]
             ];

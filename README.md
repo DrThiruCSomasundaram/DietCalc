@@ -32,7 +32,7 @@ An interactive web-based calculator for formulating and optimizing experimental 
 ## Validation Criteria
 
 - Protein difference: Maximum 2% variation allowed
-- Energy difference: Maximum 100 kJ/g variation allowed
+- Energy difference: Maximum 50 kJ/g variation allowed
 - Total ingredient ratio must equal 100%
 
 ## Energy Conversion Factors
