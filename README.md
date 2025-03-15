@@ -58,11 +58,11 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 If you use this calculator in your research, please cite it as:
 
 ```bibtex
-@software{somasundaram_diet_calculator_2024,
+@software{somasundaram_2025,
   author       = {Somasundaram, Thiru Chenduran},
   title        = {Diet Formulation Calculator: A Tool for Iso-Protein and Iso-Energy Feed Formulation},
   month        = mar,
-  year         = 2024,
+  year         = 2025,
   publisher    = {Zenodo},
   version      = {v1.0.0},
   doi          = {10.5281/zenodo.15029930},
