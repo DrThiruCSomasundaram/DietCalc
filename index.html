@@ -6,6 +6,9 @@
     <title>Diet Formulation Calculator</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script>
+        window.jsPDF = window.jspdf.jsPDF;
+    </script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -364,7 +367,7 @@
             const energyDiff = Math.max(...energyValues) - Math.min(...energyValues);
             
             const isIsoProtein = proteinDiff < 2; // Allow 2% difference
-            const isIsoEnergy = energyDiff < 100; // Allow 50 kJ/g difference
+            const isIsoEnergy = energyDiff < 100; // Allow 100 kJ/g difference
 
             isoCheckDiv.innerHTML = `
                 <h3>Iso - Protein - Iso - Energy Verification:</h3> 
@@ -376,7 +379,6 @@
         }
 
         function downloadPDF() {
-            const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             
             // Set title
@@ -393,6 +395,11 @@
 
             // Add ingredients for each feed
             feeds.forEach((feed, feedIndex) => {
+                if (yPos > 250) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                
                 yPos += 10;
                 doc.text(`Feed Treatment ${feedIndex + 1} Ingredients:`, 15, yPos);
                 yPos += 5;
@@ -414,11 +421,18 @@
                     startY: yPos,
                     head: [['Ingredient', 'Ratio (%)', 'Protein (%)', 'Lipid (%)', 'Ash (%)', 'Moisture (%)', 'Glucose (%)', 'Starch (%)', 'Fiber (%)']],
                     body: ingredientsData,
-                    margin: { left: 15 }
+                    margin: { left: 15 },
+                    tableWidth: 180
                 });
 
                 yPos = doc.lastAutoTable.finalY + 10;
             });
+
+            // Check if we need a new page for results
+            if (yPos > 220) {
+                doc.addPage();
+                yPos = 20;
+            }
 
             // Add results table
             const results = calculateNutrients();
@@ -442,10 +456,17 @@
                 startY: yPos,
                 head: [['Feed', 'Protein (%)', 'Lipid (%)', 'Ash (%)', 'Moisture (%)', 'Glucose (%)', 'Starch (%)', 'Fiber (%)', 'Energy (kJ/g)', 'Total (%)']],
                 body: resultsData,
-                margin: { left: 15 }
+                margin: { left: 15 },
+                tableWidth: 180
             });
 
             yPos = doc.lastAutoTable.finalY + 10;
+
+            // Check if we need a new page for verification
+            if (yPos > 220) {
+                doc.addPage();
+                yPos = 20;
+            }
 
             // Add iso conditions check with clearer status
             const isoConditions = checkIsoConditions(results);
@@ -509,22 +530,33 @@
             doc.text('Overall Status:', 15, yPos);
             yPos += 7;
             doc.setFontSize(14);
-            if (isOverallAccepted) {
+
+            // ISO-PROTEIN Status
+            if (isoConditions.isIsoProtein) {
                 doc.setTextColor(0, 128, 0); // Dark green
-                doc.text('FORMULATION ACCEPTED', 15, yPos);
+                doc.text('ISO-PROTEIN FORMULATION ACCEPTED', 15, yPos);
             } else {
                 doc.setTextColor(128, 0, 0); // Dark red
-                doc.text('FORMULATION NEEDS ADJUSTMENT', 15, yPos);
+                doc.text('ISO-PROTEIN FORMULATION NEEDS ADJUSTMENT', 15, yPos);
+            }
+            yPos += 10;
+
+            // ISO-ENERGY Status
+            if (isoConditions.isIsoEnergy) {
+                doc.setTextColor(0, 128, 0); // Dark green
+                doc.text('ISO-ENERGY FORMULATION ACCEPTED', 15, yPos);
+            } else {
+                doc.setTextColor(128, 0, 0); // Dark red
+                doc.text('ISO-ENERGY FORMULATION NEEDS ADJUSTMENT', 15, yPos);
             }
             doc.setTextColor(0, 0, 0); // Reset to black
-            yPos += 15;
 
             // Add footer with citation
             doc.setFontSize(8);
             const pageHeight = doc.internal.pageSize.height;
             doc.text('Certified by Dr Thiru Chenduran Somasundaram', 15, pageHeight - 20);
-            doc.text('Energy conversion factors: Protein (23.6 kJ/g), Lipid (39.5 kJ/g), Glucose/Starch (17.2 kJ/g), Fiber (0.0 kJ/g), Moisture (0.0 kJ/g)', 15, pageHeight - 15);
-            doc.text('Reference: National Research Council. (2011). Nutrient Requirements of Fish and Shrimp.', 15, pageHeight - 10);
+            doc.text('Energy conversion factors: Protein (23.6 kJ/g), Lipid (39.5 kJ/g), Glucose/Starch (17.2 kJ/g),', 15, pageHeight - 15);
+            doc.text('Fiber (0.0 kJ/g), Moisture (0.0 kJ/g)', 15, pageHeight - 10);
 
             // Save the PDF
             doc.save('diet-formulation-results.pdf');
