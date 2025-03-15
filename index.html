@@ -417,14 +417,14 @@
                     // Create ingredients table with safe data handling
                     const ingredientsData = feed.ingredients.map(ing => [
                         String(ing.name || ''),
-                        String(ing.ratio?.toFixed(1) || ''),
-                        String(ing.protein?.toFixed(1) || ''),
-                        String(ing.lipid?.toFixed(1) || ''),
-                        String(ing.ash?.toFixed(1) || ''),
-                        String(ing.moisture?.toFixed(1) || ''),
-                        String(ing.glucose?.toFixed(1) || ''),
-                        String(ing.starch?.toFixed(1) || ''),
-                        String(ing.fiber?.toFixed(1) || '')
+                        (typeof ing.ratio === 'number' ? ing.ratio.toFixed(1) : ''),
+                        (typeof ing.protein === 'number' ? ing.protein.toFixed(1) : ''),
+                        (typeof ing.lipid === 'number' ? ing.lipid.toFixed(1) : ''),
+                        (typeof ing.ash === 'number' ? ing.ash.toFixed(1) : ''),
+                        (typeof ing.moisture === 'number' ? ing.moisture.toFixed(1) : ''),
+                        (typeof ing.glucose === 'number' ? ing.glucose.toFixed(1) : ''),
+                        (typeof ing.starch === 'number' ? ing.starch.toFixed(1) : ''),
+                        (typeof ing.fiber === 'number' ? ing.fiber.toFixed(1) : '')
                     ]);
 
                     doc.autoTable({
@@ -468,15 +468,15 @@
                 const results = calculateNutrients();
                 const resultsData = results.map(r => [
                     `Feed ${r.feedNumber}`,
-                    String(r.protein.toFixed(2)),
-                    String(r.lipid.toFixed(2)),
-                    String(r.ash.toFixed(2)),
-                    String(r.moisture.toFixed(2)),
-                    String(r.glucose.toFixed(2)),
-                    String(r.starch.toFixed(2)),
-                    String(r.fiber.toFixed(2)),
-                    String(r.energy.toFixed(2)),
-                    String(r.ratioSum.toFixed(2))
+                    r.protein.toFixed(2),
+                    r.lipid.toFixed(2),
+                    r.ash.toFixed(2),
+                    r.moisture.toFixed(2),
+                    r.glucose.toFixed(2),
+                    r.starch.toFixed(2),
+                    r.fiber.toFixed(2),
+                    r.energy.toFixed(2),
+                    r.ratioSum.toFixed(2)
                 ]);
 
                 doc.autoTable({
