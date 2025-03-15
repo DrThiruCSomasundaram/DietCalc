@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diet Formulation Calculator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .setup-section, .ingredients-section, .results-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .ingredient-row {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .feed-treatment {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        input[type="number"], input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .results-table th, .results-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .results-table th {
+            background-color: #f2f2f2;
+        }
+        .optimization-suggestions {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f5e9;
+            border-radius: 5px;
+        }
+        .feed-buttons {
+            margin-bottom: 15px;
+        }
+        .feed-buttons button {
+            margin-right: 10px;
+        }
+        .download-button {
+            background-color: #2196F3;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        .download-button:hover {
+            background-color: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Diet Formulation Calculator: A Tool for Iso-Protein and Iso-Energy Feed Formulation</h1>
+        
+        <div class="setup-section">
+            <h2>Setup</h2>
+            <label for="numFeeds">Number of Experimental Feeds:</label>
+            <input type="number" id="numFeeds" min="2" value="2">
+            <button onclick="setupFeeds()">Setup Feeds</button>
+        </div>
+
+        <div id="feedsContainer"></div>
+
+        <div class="results-section" id="resultsSection" style="display: none;">
+            <h2>Results</h2>
+            <button onclick="downloadPDF()" class="download-button">Download Results as PDF</button>
+            <div id="resultsTable"></div>
+            <div id="isoCheck"></div>
+            <div id="optimizationSuggestions" class="optimization-suggestions"></div>
+        </div>
+
+        <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; font-size: 0.9em; color: #666;">
+            <p>Created by Dr Thiru Chenduran Somasundaram</p>
+            <p>Energy conversion factors: Protein (23.6 kJ/g), Lipid (39.5 kJ/g), Carbohydrate (17.2 kJ/g)</p>
+            <p>Reference: National Research Council. (2011). Nutrient Requirements of Fish and Shrimp. National Academic Press, Washington, DC. DOI: <a href="https://doi.org/10.17226/13039" target="_blank">10.17226/13039</a></p>
+            <div style="margin: 20px 0;">
+                <p style="font-weight: bold;">How to Cite:</p>
+                <p style="font-style: italic;">Somasundaram, T.C. (2025). Diet Formulation Calculator: A Tool for Iso-Protein and Iso-Energy Feed Formulation [Software]. Available from: <a href="https://github.com/yourusername/diet-formulation-calculator" target="_blank">https://github.com/yourusername/diet-formulation-calculator</a></p>
+                <p>
+                    <a href="calculator.bib" download style="color: #4CAF50; text-decoration: none; margin: 0 10px;">
+                        <button style="padding: 5px 10px; font-size: 0.9em;">Download BibTeX</button>
+                    </a>
+                </p>
+            </div>
+            <p><a href="https://github.com/yourusername/diet-formulation-calculator" target="_blank" style="color: #4CAF50; text-decoration: none;">View on GitHub</a></p>
+        </footer>
+    </div>
+
+    <script>
+        let feeds = [];
+
+        function setupFeeds() {
+            const numFeeds = parseInt(document.getElementById('numFeeds').value);
+            const container = document.getElementById('feedsContainer');
+            container.innerHTML = '';
+            feeds = [];
+
+            for (let i = 0; i < numFeeds; i++) {
+                feeds.push({
+                    ingredients: []
+                });
+                
+                const feedDiv = document.createElement('div');
+                feedDiv.className = 'feed-treatment';
+                feedDiv.innerHTML = `
+                    <h3>Feed Treatment ${i + 1}</h3>
+                    <div class="feed-buttons">
+                        <button onclick="addIngredient(${i})">Add Ingredient</button>
+                        <button onclick="copyFromFeed(${i})" ${i === 0 ? 'style="display:none;"' : ''}>Copy from Feed 1</button>
+                    </div>
+                    <div id="ingredients-${i}">
+                        <div class="ingredient-row">
+                            <div><strong>Ingredient</strong></div>
+                            <div><strong>Ratio (%)</strong></div>
+                            <div><strong>Protein (%)</strong></div>
+                            <div><strong>Lipid (%)</strong></div>
+                            <div><strong>Ash (%)</strong></div>
+                            <div><strong>Carbs (%)</strong></div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(feedDiv);
+                addIngredient(i); // Add first ingredient row automatically
+            }
+
+            document.getElementById('resultsSection').style.display = 'block';
+        }
+
+        function addIngredient(feedIndex) {
+            const ingredientsDiv = document.getElementById(`ingredients-${feedIndex}`);
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'ingredient-row';
+            
+            const ingredientId = feeds[feedIndex].ingredients.length;
+            rowDiv.innerHTML = `
+                <input type="text" placeholder="Ingredient name" 
+                    onchange="updateIngredient(${feedIndex}, ${ingredientId}, 'name', this.value)">
+                <input type="number" min="0" max="100" step="0.1" placeholder="Ratio" 
+                    onchange="updateIngredient(${feedIndex}, ${ingredientId}, 'ratio', this.value)">
+                <input type="number" min="0" max="100" step="0.1" placeholder="Protein" 
+                    onchange="updateIngredient(${feedIndex}, ${ingredientId}, 'protein', this.value)">
+                <input type="number" min="0" max="100" step="0.1" placeholder="Lipid" 
+                    onchange="updateIngredient(${feedIndex}, ${ingredientId}, 'lipid', this.value)">
+                <input type="number" min="0" max="100" step="0.1" placeholder="Ash" 
+                    onchange="updateIngredient(${feedIndex}, ${ingredientId}, 'ash', this.value)">
+                <input type="number" min="0" max="100" step="0.1" placeholder="Carbs" 
+                    onchange="updateIngredient(${feedIndex}, ${ingredientId}, 'carbs', this.value)">
+            `;
+            
+            ingredientsDiv.appendChild(rowDiv);
+            feeds[feedIndex].ingredients.push({});
+            
+            calculateAndDisplay();
+        }
+
+        function copyFromFeed(targetFeedIndex) {
+            // Clear existing ingredients in target feed
+            feeds[targetFeedIndex].ingredients = [];
+            const targetIngredientsDiv = document.getElementById(`ingredients-${targetFeedIndex}`);
+            
+            // Keep the header row
+            targetIngredientsDiv.innerHTML = `
+                <div class="ingredient-row">
+                    <div><strong>Ingredient</strong></div>
+                    <div><strong>Ratio (%)</strong></div>
+                    <div><strong>Protein (%)</strong></div>
+                    <div><strong>Lipid (%)</strong></div>
+                    <div><strong>Ash (%)</strong></div>
+                    <div><strong>Carbs (%)</strong></div>
+                </div>
+            `;
+
+            // Copy ingredients from Feed 1
+            feeds[0].ingredients.forEach(ingredient => {
+                const newIngredient = {...ingredient};
+                feeds[targetFeedIndex].ingredients.push(newIngredient);
+                
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'ingredient-row';
+                const ingredientId = feeds[targetFeedIndex].ingredients.length - 1;
+                
+                rowDiv.innerHTML = `
+                    <input type="text" placeholder="Ingredient name" value="${ingredient.name || ''}"
+                        onchange="updateIngredient(${targetFeedIndex}, ${ingredientId}, 'name', this.value)">
+                    <input type="number" min="0" max="100" step="0.1" placeholder="Ratio" value="${ingredient.ratio || ''}"
+                        onchange="updateIngredient(${targetFeedIndex}, ${ingredientId}, 'ratio', this.value)">
+                    <input type="number" min="0" max="100" step="0.1" placeholder="Protein" value="${ingredient.protein || ''}"
+                        onchange="updateIngredient(${targetFeedIndex}, ${ingredientId}, 'protein', this.value)">
+                    <input type="number" min="0" max="100" step="0.1" placeholder="Lipid" value="${ingredient.lipid || ''}"
+                        onchange="updateIngredient(${targetFeedIndex}, ${ingredientId}, 'lipid', this.value)">
+                    <input type="number" min="0" max="100" step="0.1" placeholder="Ash" value="${ingredient.ash || ''}"
+                        onchange="updateIngredient(${targetFeedIndex}, ${ingredientId}, 'ash', this.value)">
+                    <input type="number" min="0" max="100" step="0.1" placeholder="Carbs" value="${ingredient.carbs || ''}"
+                        onchange="updateIngredient(${targetFeedIndex}, ${ingredientId}, 'carbs', this.value)">
+                `;
+                
+                targetIngredientsDiv.appendChild(rowDiv);
+            });
+            
+            calculateAndDisplay();
+        }
+
+        function updateIngredient(feedIndex, ingredientIndex, property, value) {
+            feeds[feedIndex].ingredients[ingredientIndex][property] = parseFloat(value) || value;
+            calculateAndDisplay();
+        }
+
+        function calculateAndDisplay() {
+            const results = calculateNutrients();
+            displayResults(results);
+            checkIsoConditions(results);
+            suggestOptimization(results);
+        }
+
+        function calculateNutrients() {
+            return feeds.map((feed, index) => {
+                const totals = {
+                    protein: 0,
+                    lipid: 0,
+                    ash: 0,
+                    carbs: 0,
+                    energy: 0,
+                    ratioSum: 0
+                };
+
+                feed.ingredients.forEach(ingredient => {
+                    if (ingredient.ratio) {
+                        const ratio = ingredient.ratio / 100;
+                        totals.protein += (ingredient.protein || 0) * ratio;
+                        totals.lipid += (ingredient.lipid || 0) * ratio;
+                        totals.ash += (ingredient.ash || 0) * ratio;
+                        totals.carbs += (ingredient.carbs || 0) * ratio;
+                        totals.ratioSum += ingredient.ratio;
+                    }
+                });
+
+                // Calculate energy (kJ/g) - using standard conversion factors
+                totals.energy = (totals.protein * 23.6) + (totals.lipid * 39.5) + (totals.carbs * 17.2);
+
+                return {
+                    feedNumber: index + 1,
+                    ...totals
+                };
+            });
+        }
+
+        function displayResults(results) {
+            const resultsDiv = document.getElementById('resultsTable');
+            let html = `
+                <table class="results-table">
+                    <tr>
+                        <th>Feed</th>
+                        <th>Total Protein (%)</th>
+                        <th>Total Lipid (%)</th>
+                        <th>Total Ash (%)</th>
+                        <th>Total Carbs (%)</th>
+                        <th>Energy (kJ/g)</th>
+                        <th>Total Ratio (%)</th>
+                    </tr>
+            `;
+
+            results.forEach(result => {
+                html += `
+                    <tr>
+                        <td>Feed ${result.feedNumber}</td>
+                        <td>${result.protein.toFixed(2)}</td>
+                        <td>${result.lipid.toFixed(2)}</td>
+                        <td>${result.ash.toFixed(2)}</td>
+                        <td>${result.carbs.toFixed(2)}</td>
+                        <td>${result.energy.toFixed(2)}</td>
+                        <td>${result.ratioSum.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            html += '</table>';
+            resultsDiv.innerHTML = html;
+        }
+
+        function checkIsoConditions(results) {
+            const isoCheckDiv = document.getElementById('isoCheck');
+            const proteinValues = results.map(r => r.protein);
+            const energyValues = results.map(r => r.energy);
+            
+            const proteinDiff = Math.max(...proteinValues) - Math.min(...proteinValues);
+            const energyDiff = Math.max(...energyValues) - Math.min(...energyValues);
+            
+            const isIsoProtein = proteinDiff < 2; // Allow 2% difference
+            const isIsoEnergy = energyDiff < 100; // Allow 100 kJ/g difference
+
+            isoCheckDiv.innerHTML = `
+                <h3>Iso - Protein - Iso - Energy Verification:</h3> 
+                <p>Protein Difference: ${proteinDiff.toFixed(2)}% ${isIsoProtein ? '✅' : '❌'}</p>
+                <p>Energy Difference: ${energyDiff.toFixed(2)} kJ/g ${isIsoEnergy ? '✅' : '❌'}</p>
+            `;
+
+            return { proteinDiff, energyDiff, isIsoProtein, isIsoEnergy };
+        }
+
+        function suggestOptimization(results) {
+            const suggestionsDiv = document.getElementById('optimizationSuggestions');
+            const avgProtein = results.reduce((sum, r) => sum + r.protein, 0) / results.length;
+            const avgEnergy = results.reduce((sum, r) => sum + r.energy, 0) / results.length;
+            const isoConditions = checkIsoConditions(results);
+
+            let suggestions = '<h3>Optimization Suggestions:</h3>';
+            
+            results.forEach(result => {
+                const feed = feeds[result.feedNumber - 1];
+                suggestions += `<h4>Feed ${result.feedNumber}:</h4><ul>`;
+                
+                // Only suggest changes if difference is more than 2%
+                if (Math.abs(result.protein - avgProtein) > 2) {
+                    const proteinDiff = result.protein - avgProtein;
+                    suggestions += `<li>Protein content differs by ${Math.abs(proteinDiff).toFixed(2)}%:</li><ul>`;
+                    
+                    // Find highest protein ingredients
+                    const sortedByProtein = [...feed.ingredients]
+                        .filter(i => i.ratio && i.protein)
+                        .sort((a, b) => b.protein - a.protein);
+
+                    if (proteinDiff > 0) {
+                        // Need to reduce protein
+                        sortedByProtein.slice(0, 2).forEach(ing => {
+                            // Calculate what percentage of the current ratio needs to be adjusted
+                            const currentContribution = (ing.protein * ing.ratio) / 100;
+                            const desiredReduction = proteinDiff * (ing.ratio / result.protein);
+                            const adjustmentPercent = (desiredReduction / currentContribution) * ing.ratio;
+                            suggestions += `<li>Reduce "${ing.name}" by approximately ${Math.abs(adjustmentPercent).toFixed(1)}% (from ${ing.ratio.toFixed(1)}% to ${(ing.ratio - adjustmentPercent).toFixed(1)}%)</li>`;
+                        });
+                    } else {
+                        // Need to increase protein
+                        sortedByProtein.slice(0, 2).forEach(ing => {
+                            const currentContribution = (ing.protein * ing.ratio) / 100;
+                            const desiredIncrease = Math.abs(proteinDiff) * (ing.ratio / result.protein);
+                            const adjustmentPercent = (desiredIncrease / currentContribution) * ing.ratio;
+                            suggestions += `<li>Increase "${ing.name}" by approximately ${adjustmentPercent.toFixed(1)}% (from ${ing.ratio.toFixed(1)}% to ${(ing.ratio + adjustmentPercent).toFixed(1)}%)</li>`;
+                        });
+                    }
+                    suggestions += '</ul>';
+                }
+                
+                if (Math.abs(result.energy - avgEnergy) > 100) { // Changed threshold to 100 kJ/g
+                    const energyDiff = result.energy - avgEnergy;
+                    suggestions += `<li>Energy content differs by ${Math.abs(energyDiff).toFixed(2)} kJ/g:</li><ul>`;
+                    
+                    // Find highest energy contributing ingredients
+                    const sortedByEnergy = [...feed.ingredients]
+                        .filter(i => i.ratio)
+                        .map(i => ({
+                            ...i,
+                            energyContribution: ((i.protein * 23.6 + i.lipid * 39.5 + i.carbs * 17.2) * i.ratio) / 100
+                        }))
+                        .sort((a, b) => b.energyContribution - a.energyContribution);
+
+                    if (energyDiff > 0) {
+                        // Need to reduce energy
+                        sortedByEnergy.slice(0, 2).forEach(ing => {
+                            const totalEnergyContribution = ing.energyContribution * (ing.ratio / 100);
+                            const desiredReduction = energyDiff * (ing.ratio / result.energy);
+                            const adjustmentPercent = (desiredReduction / totalEnergyContribution) * ing.ratio;
+                            suggestions += `<li>Reduce "${ing.name}" by approximately ${Math.abs(adjustmentPercent).toFixed(1)}% (from ${ing.ratio.toFixed(1)}% to ${(ing.ratio - adjustmentPercent).toFixed(1)}%)</li>`;
+                        });
+                    } else {
+                        // Need to increase energy
+                        sortedByEnergy.slice(0, 2).forEach(ing => {
+                            const totalEnergyContribution = ing.energyContribution * (ing.ratio / 100);
+                            const desiredIncrease = Math.abs(energyDiff) * (ing.ratio / result.energy);
+                            const adjustmentPercent = (desiredIncrease / totalEnergyContribution) * ing.ratio;
+                            suggestions += `<li>Increase "${ing.name}" by approximately ${adjustmentPercent.toFixed(1)}% (from ${ing.ratio.toFixed(1)}% to ${(ing.ratio + adjustmentPercent).toFixed(1)}%)</li>`;
+                        });
+                    }
+                    suggestions += '</ul>';
+                }
+
+                if (Math.abs(result.ratioSum - 100) > 0.1) {
+                    suggestions += `<li>Total ingredients ratio should equal 100% (currently ${result.ratioSum.toFixed(1)}%)</li>`;
+                    const diff = 100 - result.ratioSum;
+                    if (diff > 0) {
+                        suggestions += `<li>Add ${diff.toFixed(1)}% more ingredients to reach 100%</li>`;
+                    } else {
+                        suggestions += `<li>Reduce total ingredients by ${Math.abs(diff).toFixed(1)}% to reach 100%</li>`;
+                    }
+                }
+                
+                suggestions += '</ul>';
+            });
+
+            suggestionsDiv.innerHTML = suggestions;
+        }
+
+        function downloadPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Set title
+            doc.setFontSize(16);
+            doc.text('Diet Formulation Calculator Results', 15, 15);
+            doc.setFontSize(12);
+            
+            let yPos = 30;
+            
+            // Add date and time
+            const currentDate = new Date().toLocaleString();
+            doc.text(`Report generated on: ${currentDate}`, 15, yPos);
+            yPos += 10;
+
+            // Add ingredients for each feed
+            feeds.forEach((feed, feedIndex) => {
+                yPos += 10;
+                doc.text(`Feed Treatment ${feedIndex + 1} Ingredients:`, 15, yPos);
+                yPos += 5;
+
+                // Create ingredients table
+                const ingredientsData = feed.ingredients.map(ing => [
+                    ing.name || '',
+                    ing.ratio?.toFixed(1) || '',
+                    ing.protein?.toFixed(1) || '',
+                    ing.lipid?.toFixed(1) || '',
+                    ing.ash?.toFixed(1) || '',
+                    ing.carbs?.toFixed(1) || ''
+                ]);
+
+                doc.autoTable({
+                    startY: yPos,
+                    head: [['Ingredient', 'Ratio (%)', 'Protein (%)', 'Lipid (%)', 'Ash (%)', 'Carbs (%)']],
+                    body: ingredientsData,
+                    margin: { left: 15 }
+                });
+
+                yPos = doc.lastAutoTable.finalY + 10;
+            });
+
+            // Add results table
+            const results = calculateNutrients();
+            const resultsData = results.map(r => [
+                `Feed ${r.feedNumber}`,
+                r.protein.toFixed(2),
+                r.lipid.toFixed(2),
+                r.ash.toFixed(2),
+                r.carbs.toFixed(2),
+                r.energy.toFixed(2),
+                r.ratioSum.toFixed(2)
+            ]);
+
+            doc.text('Results Summary:', 15, yPos);
+            yPos += 5;
+
+            doc.autoTable({
+                startY: yPos,
+                head: [['Feed', 'Protein (%)', 'Lipid (%)', 'Ash (%)', 'Carbs (%)', 'Energy (kJ/g)', 'Total (%)']],
+                body: resultsData,
+                margin: { left: 15 }
+            });
+
+            yPos = doc.lastAutoTable.finalY + 10;
+
+            // Add iso conditions check with clearer status
+            const isoConditions = checkIsoConditions(results);
+            doc.text('Iso-Protein and Iso-Energy Verification:', 15, yPos);
+            yPos += 10;
+
+            // Create verification results table
+            const verificationData = [
+                ['Parameter', 'Difference', 'Maximum Allowed', 'Status'],
+                [
+                    'Protein',
+                    `${isoConditions.proteinDiff.toFixed(2)}%`,
+                    '2.00%',
+                    isoConditions.isIsoProtein ? 'ACCEPTED' : 'NOT ACCEPTED'
+                ],
+                [
+                    'Energy',
+                    `${isoConditions.energyDiff.toFixed(2)} kJ/g`,
+                    '100.00 kJ/g',
+                    isoConditions.isIsoEnergy ? 'ACCEPTED' : 'NOT ACCEPTED'
+                ]
+            ];
+
+            doc.autoTable({
+                startY: yPos,
+                head: [verificationData[0]],
+                body: verificationData.slice(1),
+                margin: { left: 15 },
+                styles: { fontSize: 10 },
+                columnStyles: {
+                    3: {
+                        fontStyle: 'bold',
+                        textColor: [0, 0, 0],
+                        cellPadding: 5
+                    }
+                },
+                didDrawCell: function(data) {
+                    if (data.section === 'body' && data.column.index === 3) {
+                        const cell = data.cell;
+                        const text = cell.text[0];
+                        if (text === 'ACCEPTED') {
+                            doc.setFillColor(200, 255, 200); // Light green
+                        } else {
+                            doc.setFillColor(255, 200, 200); // Light red
+                        }
+                        doc.rect(cell.x, cell.y, cell.width, cell.height, 'F');
+                        doc.setTextColor(0, 0, 0);
+                        doc.text(text, cell.x + cell.width / 2, cell.y + cell.height / 2, {
+                            align: 'center',
+                            baseline: 'middle'
+                        });
+                    }
+                }
+            });
+
+            yPos = doc.lastAutoTable.finalY + 10;
+
+            // Overall Status
+            const isOverallAccepted = isoConditions.isIsoProtein && isoConditions.isIsoEnergy;
+            doc.setFontSize(12);
+            doc.text('Overall Status:', 15, yPos);
+            yPos += 7;
+            doc.setFontSize(14);
+            if (isOverallAccepted) {
+                doc.setTextColor(0, 128, 0); // Dark green
+                doc.text('FORMULATION ACCEPTED', 15, yPos);
+            } else {
+                doc.setTextColor(128, 0, 0); // Dark red
+                doc.text('FORMULATION NEEDS ADJUSTMENT', 15, yPos);
+            }
+            doc.setTextColor(0, 0, 0); // Reset to black
+            yPos += 15;
+
+            // Add footer with citation
+            doc.setFontSize(8);
+            const pageHeight = doc.internal.pageSize.height;
+            doc.text('Created by Dr Thiru Chenduran Somasundaram', 15, pageHeight - 20);
+            doc.text('Energy conversion factors: Protein (23.6 kJ/g), Lipid (39.5 kJ/g), Carbohydrate (17.2 kJ/g)', 15, pageHeight - 15);
+            doc.text('Reference: National Research Council. (2011). Nutrient Requirements of Fish and Shrimp.', 15, pageHeight - 10);
+
+            // Save the PDF
+            doc.save('diet-formulation-results.pdf');
+        }
+
+        // Initialize the page with 2 feeds
+        window.onload = () => setupFeeds();
+    </script>
+</body>
+</html> 
